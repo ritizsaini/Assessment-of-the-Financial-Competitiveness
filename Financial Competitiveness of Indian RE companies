@@ -1,0 +1,70 @@
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import gaussian_kde
+import pandas as pd
+from scipy.integrate import trapz
+
+
+def smooth_cdf(data):
+  """
+  Calculates the smooth cumulative density function (CDF) using Kernel Density Estimation (KDE).
+
+  Args:
+    data: A numpy array containing the data.
+
+  Returns:
+    x: A numpy array containing the x-values for the CDF.
+    cdf: A numpy array containing the corresponding CDF values.
+  """
+  # Calculate the kernel density estimate
+  kde = gaussian_kde(data)
+
+  # Evaluate the KDE at a grid of points
+  x = np.linspace(min(data), max(data), 100)
+  y = kde.evaluate(x)
+
+  # Calculate the cumulative density function (CDF)
+  cdf = np.cumsum(y) / np.sum(y)
+
+  return x, cdf
+
+
+df = pd.read_excel("/content/Python input latest.xlsx")  # Replace 'your_excel_file.xlsx' with the actual file name and 'Sheet1' with the sheet name
+# Now you can work with the data in the DataFrame 'df'
+
+entropy_values = []
+for column in df.columns:
+  # Access the column data
+  column_data = df[column]
+  # Do something with the column data
+  data = column_data.dropna().values  # Remove NaN values
+  if len(data) > 0:  # Check if there are any valid values in the column
+    x, cdf = smooth_cdf(data)
+    # Plot the CDF
+    plt.plot(x, cdf)
+    plt.xlabel('Data')
+    plt.ylabel('Cumulative Density')
+    plt.title(f'Kernel Density Estimation - CDF for {column}')
+    plt.show()
+    def entropy_from_cdf(x, cdf):
+      pdf = np.diff(cdf) / np.diff(x)
+      entropy = -trapz(pdf * np.log2(pdf), x[:-1])
+      return entropy
+    entropy = entropy_from_cdf(x, cdf)
+    print(f"Entropy: {entropy}")
+    entropy_values.append(entropy)  # Append the entropy value to the list
+print(entropy_values)
+weights=[]
+total_sum = sum(entropy_values)
+for i in entropy_values:
+  weights.append(i/total_sum)
+print(weights)
+df['score'] = df.iloc[:, 0] * weights[0] + df.iloc[:, 1] * weights[1]
+print(df['score'])
+
+# Create a new DataFrame with only the 'score' column
+score_df = df[['score']]
+
+# Save the new DataFrame to an Excel file
+score_df.to_excel('/content/score_output.xlsx', index=False)
